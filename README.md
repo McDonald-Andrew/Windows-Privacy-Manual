@@ -562,15 +562,15 @@ The script currently checks:
 
 The control paths and semantics in this document were checked against current Microsoft documentation, including:
 
-- [Microsoft Security Compliance Toolkit](https://www.microsoft.com/en-us/download/details.aspx?id=55319&utm_source=chatgpt.com) and [LGPO.exe tool guidance](https://techcommunity.microsoft.com/blog/microsoft-security-baselines/lgpo-exe---local-group-policy-object-utility-v1-0/701045?utm_source=chatgpt.com).
-- [Windows Spotlight configuration](https://learn.microsoft.com/en-us/windows/configuration/windows-spotlight?utm_source=chatgpt.com) and [Experience Policy CSP mappings](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-experience?utm_source=chatgpt.com).
-- [Privacy Policy CSP mappings for Activity Feed and user activities](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy?utm_source=chatgpt.com).
-- [ADMX Group Policy CSP mappings for CDP and MMX](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-grouppolicy?utm_source=chatgpt.com).
-- [Notifications Policy CSP for WNS network-use policy](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-notifications?utm_source=chatgpt.com).
-- [Search Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-search?utm_source=chatgpt.com) and [Windows privacy connection-management guidance](https://learn.microsoft.com/en-gb/windows/privacy/manage-connections-from-windows-operating-system-components-to-microsoft-services?utm_source=chatgpt.com).
-- [SettingsSync ADMX Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-settingsync?utm_source=chatgpt.com) and [Windows Backup policy settings](https://learn.microsoft.com/en-us/windows/configuration/windows-backup/policy-settings?utm_source=chatgpt.com).
-- [ErrorReporting Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-errorreporting?utm_source=chatgpt.com).
-- [Defender Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-defender?utm_source=chatgpt.com).
-- [Microsoft Edge Experimentation and Configuration Service policy](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-browser-policies/experimentationandconfigurationservicecontrol?utm_source=chatgpt.com), [Microsoft Edge WebView2 policy documentation](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-webview-policies?utm_source=chatgpt.com), and [Microsoft Edge Update policy documentation](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-update-policies?utm_source=chatgpt.com).
-- [Microsoft 365 Apps privacy-control documentation](https://learn.microsoft.com/en-us/microsoft-365-apps/privacy/manage-privacy-controls?utm_source=chatgpt.com).
-- [Delivery Optimization Simple mode documentation](https://learn.microsoft.com/en-us/windows/deployment/do/waas-delivery-optimization-reference?utm_source=chatgpt.com).
+- [Microsoft Security Compliance Toolkit](https://www.microsoft.com/en-us/download/details.aspx?id=55319) and [LGPO.exe tool guidance](https://techcommunity.microsoft.com/blog/microsoft-security-baselines/lgpo-exe---local-group-policy-object-utility-v1-0/701045).
+- [Windows Spotlight configuration](https://learn.microsoft.com/en-us/windows/configuration/windows-spotlight) and [Experience Policy CSP mappings](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-experience).
+- [Privacy Policy CSP mappings for Activity Feed and user activities](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy).
+- [ADMX Group Policy CSP mappings for CDP and MMX](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-grouppolicy).
+- [Notifications Policy CSP for WNS network-use policy](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-notifications).
+- [Search Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-search) and [Windows privacy connection-management guidance](https://learn.microsoft.com/en-gb/windows/privacy/manage-connections-from-windows-operating-system-components-to-microsoft-services).
+- [SettingsSync ADMX Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-settingsync) and [Windows Backup policy settings](https://learn.microsoft.com/en-us/windows/configuration/windows-backup/policy-settings).
+- [ErrorReporting Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-errorreporting).
+- [Defender Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-defender).
+- [Microsoft Edge Experimentation and Configuration Service policy](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-browser-policies/experimentationandconfigurationservicecontrol), [Microsoft Edge WebView2 policy documentation](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-webview-policies), and [Microsoft Edge Update policy documentation](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-update-policies).
+- [Microsoft 365 Apps privacy-control documentation](https://learn.microsoft.com/en-us/microsoft-365-apps/privacy/manage-privacy-controls).
+- [Delivery Optimization Simple mode documentation](https://learn.microsoft.com/en-us/windows/deployment/do/waas-delivery-optimization-reference).
