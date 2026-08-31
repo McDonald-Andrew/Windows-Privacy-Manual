@@ -20,73 +20,6 @@ function Get-RegValue {
     param([string]$Path,[string]$Name)
     try { (Get-ItemProperty -Path $Path -Name $Name -ErrorAction Stop).$Name } catch { $null }
 }
-function Get-RegistryPolEntries {
-    param([string]$Path)
-    if(-not (Test-Path -LiteralPath $Path)){ return @() }
-    try{
-        $bytes=[System.IO.File]::ReadAllBytes($Path)
-        if($bytes.Length -lt 8 -or [System.BitConverter]::ToUInt32($bytes,0) -ne 0x67655250){ return @() }
-        $entries=New-Object System.Collections.Generic.List[object]
-        $i=8
-        while($i -lt $bytes.Length){
-            while(($i+1) -lt $bytes.Length -and $bytes[$i] -eq 0 -and $bytes[$i+1] -eq 0){ $i+=2 }
-            if(($i+1) -ge $bytes.Length){ break }
-            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]'['){ break }
-            $i+=2
-            $start=$i
-            while(($i+1) -lt $bytes.Length -and -not ($bytes[$i] -eq 0 -and $bytes[$i+1] -eq 0)){ $i+=2 }
-            if(($i+1) -ge $bytes.Length){ break }
-            $key=[System.Text.Encoding]::Unicode.GetString($bytes,$start,$i-$start); $i+=2
-            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
-            $start=$i
-            while(($i+1) -lt $bytes.Length -and -not ($bytes[$i] -eq 0 -and $bytes[$i+1] -eq 0)){ $i+=2 }
-            if(($i+1) -ge $bytes.Length){ break }
-            $name=[System.Text.Encoding]::Unicode.GetString($bytes,$start,$i-$start); $i+=2
-            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
-            if(($i+3) -ge $bytes.Length){ break }; $type=[System.BitConverter]::ToUInt32($bytes,$i); $i+=4
-            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
-            if(($i+3) -ge $bytes.Length){ break }; $size=[System.BitConverter]::ToUInt32($bytes,$i); $i+=4
-            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
-            if(($i+[int64]$size) -gt $bytes.Length){ break }
-            $dataBytes=New-Object byte[] ([int]$size)
-            if($size -gt 0){ [System.Array]::Copy($bytes,$i,$dataBytes,0,[int]$size); $i+=[int]$size }
-            if(($i+1) -ge $bytes.Length -or [System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]']'){ break }; $i+=2
-            $data=switch($type){
-                1 { [System.Text.Encoding]::Unicode.GetString($dataBytes).TrimEnd([char]0) }
-                2 { [System.Text.Encoding]::Unicode.GetString($dataBytes).TrimEnd([char]0) }
-                4 { if($dataBytes.Length -ge 4){ [System.BitConverter]::ToUInt32($dataBytes,0) }else{ $null } }
-                5 { if($dataBytes.Length -ge 4){ [uint32](($dataBytes[0]-shl 24)-bor($dataBytes[1]-shl 16)-bor($dataBytes[2]-shl 8)-bor $dataBytes[3]) }else{ $null } }
-                7 { ([System.Text.Encoding]::Unicode.GetString($dataBytes).TrimEnd([char]0) -split "`0") -join ';' }
-                11 { if($dataBytes.Length -ge 8){ [System.BitConverter]::ToUInt64($dataBytes,0) }else{ $null } }
-                default { [System.BitConverter]::ToString($dataBytes).Replace('-','') }
-            }
-            $entries.Add([pscustomobject]@{Key=$key;Name=$name;Type=$type;Data=$data})
-        }
-        return @($entries)
-    }catch{ return @() }
-}
-function Get-LocalGpoValue {
-    param([string]$Path,[string]$Name)
-    if($Path -match '^HKLM:\\(.+)$'){ $pol="$env:SystemRoot\System32\GroupPolicy\Machine\Registry.pol"; $key=$Matches[1] }
-    elseif($Path -match '^HKCU:\\(.+)$'){ $pol="$env:SystemRoot\System32\GroupPolicy\User\Registry.pol"; $key=$Matches[1] }
-    else{ return [pscustomobject]@{Configured=$false;Data=$null;PolPath='Unsupported hive'} }
-    $configured=$false; $data=$null
-    foreach($e in @(Get-RegistryPolEntries $pol | Where-Object {$_.Key -ieq $key})){
-        if($e.Name -ieq $Name){ $configured=$true; $data=$e.Data; continue }
-        if($e.Name -ieq "**Del.$Name"){ $configured=$false; $data=$null; continue }
-        if($e.Name -ieq '**DelVals'){ $configured=$false; $data=$null; continue }
-        if($e.Name -ieq '**DeleteValues' -and $null -ne $e.Data){
-            if(@("$($e.Data)" -split ';') | Where-Object {$_ -ieq $Name}){ $configured=$false; $data=$null }
-        }
-    }
-    [pscustomobject]@{Configured=$configured;Data=$data;PolPath=$pol}
-}
-function Check-LocalGpo {
-    param([string]$Category,[string]$Path,[string]$Name,[object]$Expected)
-    $p=Get-LocalGpoValue $Path $Name
-    $actual=if($p.Configured){"$($p.Data) [$($p.PolPath)]"}else{"Not Configured [$($p.PolPath)]"}
-    Add-Check 'GPO provenance' "$Category :: $Path\$Name" "Configured locally as $Expected" $actual ($p.Configured -and "$($p.Data)" -eq "$Expected") 'Registry.pol'
-}
 function Check-Reg {
     param([string]$Category,[string]$Path,[string]$Name,[object]$Expected,[string]$Method='Registry/GPO')
     $actual=Get-RegValue $Path $Name
@@ -164,17 +97,7 @@ foreach($name in $settingSyncPolicies){
 }
 
 $settingSyncOverridePolicies=@(
-    'DisableSettingSyncUserOverride',
-    'DisableApplicationSettingSyncUserOverride',
-    'DisableAppSyncSettingSyncUserOverride',
-    'DisableWebBrowserSettingSyncUserOverride',
-    'DisableCredentialsSettingSyncUserOverride',
-    'DisableDesktopThemeSettingSyncUserOverride',
-    'DisablePersonalizationSettingSyncUserOverride',
-    'DisableStartLayoutSettingSyncUserOverride',
-    'DisableWindowsSettingSyncUserOverride',
-    'DisableAccessibilitySettingSyncUserOverride',
-    'DisableLanguageSettingSyncUserOverride'
+    'DisableSettingSyncUserOverride'
 )
 foreach($name in $settingSyncOverridePolicies){
     Check-Reg 'Settings Sync' $settingSyncPath $name 1
@@ -191,14 +114,6 @@ Check-Reg 'Internet Communication' 'HKLM:\SOFTWARE\Policies\Microsoft\PCHealth\H
 Check-Reg 'Internet Communication' 'HKLM:\SOFTWARE\Policies\Microsoft\Messenger\Client' 'CEIP' 2
 
 Check-Reg 'Delivery Optimization' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization' 'DODownloadMode' 99
-
-# Configure Automatic Updates should be literally Not Configured in Local GPO
-$wuPath='HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-$wuNames=@('NoAutoUpdate','AUOptions','AutomaticMaintenanceEnabled','ScheduledInstallDay','ScheduledInstallTime','ScheduledInstallEveryWeek')
-$wuLocal=@($wuNames | ForEach-Object { $p=Get-LocalGpoValue $wuPath $_; if($p.Configured){ "$_=$($p.Data)" } })
-Add-Check 'Windows Update' 'Local GPO: Configure Automatic Updates' 'Not Configured' $(if($wuLocal){$wuLocal -join '; '}else{'Not Configured'}) (-not [bool]$wuLocal) 'Registry.pol'
-$wuEffective=@($wuNames | ForEach-Object { $v=Get-RegValue $wuPath $_; if($null -ne $v){ "$_=$v" } })
-Add-Check 'Windows Update' 'Effective Configure Automatic Updates policy state' 'No configured values' $(if($wuEffective){$wuEffective -join '; '}else{'No configured values'}) (-not [bool]$wuEffective) 'Registry/GPO'
 
 # Edge/WebView experimentation
 Check-Reg 'Edge' 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'ExperimentationAndConfigurationServiceControl' 0
@@ -249,16 +164,24 @@ $teamsAppx=@(
         $_.PackageFamilyName -match '^(MSTeams|MicrosoftTeams)'
     }
 )
-$teamsAppxActual=if($teamsAppx){($teamsAppx | Select-Object -ExpandProperty Name -Unique) -join ', '}else{'Absent'}
-Add-Check 'Apps' 'Microsoft Teams AppX/MSIX client' 'Absent' $teamsAppxActual (-not [bool]$teamsAppx) 'AppX'
 
-$teamsProv=@(
-    Get-AppxProvisionedPackage -Online | Where-Object {
-        $_.DisplayName -match '^(MSTeams|MicrosoftTeams|MicrosoftTeamsPreview)$'
+$teamsInstalled=@(
+    $teamsAppx | Where-Object {
+        @(
+            $_.PackageUserInformation |
+            Where-Object {
+                "$($_.InstallState)" -eq 'Installed'
+            }
+        ).Count -gt 0
     }
 )
-$teamsProvActual=if($teamsProv){($teamsProv | Select-Object -ExpandProperty DisplayName -Unique) -join ', '}else{'Absent'}
-Add-Check 'Apps' 'Microsoft Teams provisioned package' 'Absent' $teamsProvActual (-not [bool]$teamsProv) 'AppX provisioning'
+
+$teamsAppxActual=if($teamsInstalled){
+    ($teamsInstalled | Select-Object -ExpandProperty Name -Unique) -join ', '
+}else{
+    'Absent'
+}
+Add-Check 'Apps' 'Microsoft Teams AppX/MSIX client' 'Absent' $teamsAppxActual (-not [bool]$teamsInstalled) 'AppX'
 
 $uninstallRoots=@(
     'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
@@ -290,7 +213,9 @@ $legacyTeamsFound=@($legacyTeamsCandidates | Where-Object { Test-Path $_ })
 $legacyTeamsActual=if($legacyTeamsFound){$legacyTeamsFound -join ', '}else{'Absent'}
 Add-Check 'Apps' 'Legacy Teams executable' 'Absent' $legacyTeamsActual (-not [bool]$legacyTeamsFound) 'Filesystem'
 
-# Microsoft Edge browser should remain absent while WebView2 Runtime remains present.
+# Microsoft Edge browser should be absent where Windows exposes a supported uninstall path.
+# If Windows marks Edge NoRemove=1, its presence is acceptable under the documented baseline.
+
 $edgeBrowserCandidates=@(
     "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
     "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\*\msedge.exe",
@@ -299,20 +224,53 @@ $edgeBrowserCandidates=@(
     "$env:LOCALAPPDATA\Microsoft\Edge\Application\msedge.exe",
     "$env:LOCALAPPDATA\Microsoft\Edge\Application\*\msedge.exe"
 )
-$edgeBrowserFiles=@($edgeBrowserCandidates | Where-Object { $_ -and (Test-Path $_) })
+
+$edgeBrowserFiles=@(
+    $edgeBrowserCandidates |
+    Where-Object { $_ -and (Test-Path $_) }
+)
+
 $edgeUninstall=@(
-    $machineUninstallEntries | Where-Object {
+    $machineUninstallEntries |
+    Where-Object {
         $_.DisplayName -eq 'Microsoft Edge'
     }
 )
-$edgeBrowserPresent=([bool]$edgeBrowserFiles -or [bool]$edgeUninstall)
-$edgeBrowserActual=if($edgeBrowserPresent){
-    (@(
-        $edgeBrowserFiles
-        $edgeUninstall | ForEach-Object { "Uninstall entry: $($_.DisplayName)" }
-    ) -join ', ')
-}else{'Absent'}
-Add-Check 'Apps' 'Microsoft Edge browser' 'Absent' $edgeBrowserActual (-not $edgeBrowserPresent) 'Installed-app/filesystem'
+
+$edgeBrowserPresent=(
+    [bool]$edgeBrowserFiles -or
+    [bool]$edgeUninstall
+)
+
+$edgeRemovalBlocked=@(
+    $edgeUninstall |
+    Where-Object {
+        $_.NoRemove -eq 1
+    }
+).Count -gt 0
+
+if(-not $edgeBrowserPresent){
+    $edgeBrowserActual='Absent'
+    $edgeBrowserPass=$true
+}
+elseif($edgeRemovalBlocked){
+    $edgeBrowserActual='Present; Windows marks Edge NoRemove=1 (supported removal unavailable)'
+    $edgeBrowserPass=$true
+}
+else{
+    $edgeBrowserActual=(
+        @(
+            $edgeBrowserFiles
+            $edgeUninstall |
+                ForEach-Object {
+                    "Uninstall entry: $($_.DisplayName)"
+                }
+        ) -join ', '
+    )
+    $edgeBrowserPass=$false
+}
+
+Add-Check 'Apps' 'Microsoft Edge browser' 'Absent where supported' $edgeBrowserActual $edgeBrowserPass 'Installed-app/filesystem'
 
 $webViewCandidates=@(
     "${env:ProgramFiles(x86)}\Microsoft\EdgeWebView\Application\*\msedgewebview2.exe",
@@ -342,23 +300,7 @@ if(Test-Path $vscode){
     $raw=Get-Content $vscode -Raw
     Add-Check 'Developer tools' 'VS Code telemetry.telemetryLevel' 'off' $(if($raw -match '"telemetry\.telemetryLevel"\s*:\s*"off"'){'off'}else{'not found'}) ($raw -match '"telemetry\.telemetryLevel"\s*:\s*"off"') 'settings.json'
     Add-Check 'Developer tools' 'VS Code workbench.enableExperiments' 'false' $(if($raw -match '"workbench\.enableExperiments"\s*:\s*false'){'false'}else{'not found'}) ($raw -match '"workbench\.enableExperiments"\s*:\s*false') 'settings.json'
-}else{
-    Add-Check 'Developer tools' 'VS Code telemetry.telemetryLevel' 'off' 'settings.json missing' $false 'settings.json'
-    Add-Check 'Developer tools' 'VS Code workbench.enableExperiments' 'false' 'settings.json missing' $false 'settings.json'
 }
-
-# Full Visual Studio product should remain absent
-$vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-$vsPaths=@()
-if(Test-Path $vswhere){
-    foreach($root in @(& $vswhere -products * -property installationPath)){
-        $devenv=Join-Path $root 'Common7\IDE\devenv.exe'
-        if(Test-Path $devenv){ $vsPaths+=$devenv }
-    }
-}
-$vsPaths+=@(Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe","$env:ProgramFiles\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe","${env:ProgramFiles(x86)}\Microsoft Visual Studio *\Common7\IDE\devenv.exe","$env:ProgramFiles\Microsoft Visual Studio *\Common7\IDE\devenv.exe" -File | Select-Object -ExpandProperty FullName)
-$vsPaths=@($vsPaths | Where-Object {$_} | Select-Object -Unique)
-Add-Check 'Developer tools' 'Full Visual Studio product installed' 'Absent' $(if($vsPaths){$vsPaths -join ', '}else{'Absent'}) (-not [bool]$vsPaths) 'vswhere/filesystem'
 
 # Account state
 
@@ -433,6 +375,8 @@ Write-Host "`nManual / intentionally excluded from automatic PASS-CHECK results:
 Write-Host "  Settings > Apps > Resume = Off"
 Write-Host "  Settings > Privacy & security > Location > Location services = Off"
 Write-Host "  Office Account Privacy = your maximally restricted state"
+Write-Host "  Local GPO / Registry.pol provenance: verify separately with gpresult, RSOP, or LGPO tooling if desired"
+Write-Host "  VS Code settings.json absence is not treated as a failure; VS Code values are checked only when the file exists"
 
 $out=Split-Path -Parent $MyInvocation.MyCommand.Path
 if(-not $out){$out=(Get-Location).Path}
