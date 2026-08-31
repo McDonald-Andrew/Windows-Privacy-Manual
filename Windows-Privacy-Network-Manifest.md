@@ -1,42 +1,42 @@
-# Windows 11 Privacy / Network-Hardening Manifest
+# Windows 10/11 Privacy Network Manifest
+
 Snapshot: 2026-08-30
 
 ## Removed or blocked endpoints
 
-| Endpoint / pattern | Final state | Method / cause |
-|---|---|---|
-| v10.events.data.microsoft.com | Removed | AllowTelemetry=0 + DiagTrack disabled |
-| v20.events.data.microsoft.com | Removed | AllowTelemetry=0 + DiagTrack disabled |
-| browser.events.data.msn.com | Removed | Microsoft.StartExperiencesApp removed |
-| mobile.events.data.microsoft.com (Defender source) | Defender source removed; hostname shared | DisableCoreServiceTelemetry=True; Office Click-to-Run may still use it |
-| settings-win.data.microsoft.com | Hosts-sinkholed | 0.0.0.0 and :: in hosts |
-| watson.events.data.microsoft.com | Removed | GPO: Disable Windows Error Reporting = Enabled |
-| client.wns.windows.com | Removed | WNS network-use policy + NoCloudApplicationNotification=1 |
-| activity.windows.com | Removed | EnableActivityFeed/PublishUserActivities/UploadUserActivities=0 |
-| enterprise.activity.windows.com | Removed | Same Activity Feed policy |
-| cs.dds.microsoft.com | Removed at source | CDP/MMX off, CDP services disabled, work account removed, OS MSA blocked/local account, sync off |
-| graph.microsoft.com (CrossDeviceResume source) | Removed for background Resume | Settings > Apps > Resume = Off |
-| inference.location.live.net | Removed | Settings > Privacy & security > Location > Location services = Off |
-| agps.location.live.net | Removed | Same Location switch |
-| fd.api.iris.microsoft.com | Hosts-sinkholed | Spotlight disabled + 0.0.0.0 and :: in hosts |
-| assets.msn.com | Removed with Widgets/Spotlight | Widgets and consumer-content policies |
-| arc.msn.com | Removed with Widgets/Spotlight | Widgets and consumer-content policies |
-| api.msn.com | Removed with Widgets/Spotlight | Widgets and consumer-content policies |
-| www.msn.com | Removed with Widgets/Spotlight | Widgets and consumer-content policies |
-| c.msn.com | Removed with Widgets/Spotlight | Widgets and consumer-content policies |
-| windows.msn.com | Removed with Widgets/Spotlight | Widgets and consumer-content policies |
-| e.clarity.ms / c.clarity.ms / www.clarity.ms | Removed with source features | Widgets/consumer-content surfaces disabled |
-| sb.scorecardresearch.com | Removed with source features | Widgets/consumer-content surfaces disabled |
-| www.bing.com (Windows Search integration) | Removed | GPO web-search disables + DisableSearchBoxSuggestions=1 |
-| www.msftconnecttest.com | Removed | NCSI active tests disabled |
-| dns.msftncsi.com | Removed | NCSI active tests disabled |
-| array*.prod.do.dsp.mp.microsoft.com | Removed | Delivery Optimization DODownloadMode=99 |
-| config.edge.skype.com | Removed | Edge/WebView2/EdgeUpdate experimentation/config policies = 0 |
-| ic3.events.data.microsoft.com | Removed with Teams | Teams uninstalled |
-| teams.microsoft.com | Removed with Teams | Teams uninstalled |
-| teams.live.com | Removed with Teams | Teams uninstalled |
-| *.trouter.skype.com | Removed with Teams | Teams uninstalled |
-| login.microsoftonline.com (idle Teams/work-account source) | Removed from idle background | Teams removed + work/school account disconnected; not globally blocked |
+| Endpoint / pattern                                         | Final state                    | Method / cause                                                                                   |
+| ---------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| v10.events.data.microsoft.com                              | Removed                        | AllowTelemetry=0 + DiagTrack disabled                                                            |
+| v20.events.data.microsoft.com                              | Removed                        | AllowTelemetry=0 + DiagTrack disabled                                                            |
+| browser.events.data.msn.com                                | Removed                        | Microsoft.StartExperiencesApp removed                                                            |
+| settings-win.data.microsoft.com                            | Hosts-sinkholed                | 0.0.0.0 and :: in hosts                                                                          |
+| watson.events.data.microsoft.com                           | Removed                        | GPO: Disable Windows Error Reporting = Enabled                                                   |
+| client.wns.windows.com                                     | Removed                        | WNS network-use policy + NoCloudApplicationNotification=1                                        |
+| activity.windows.com                                       | Removed                        | EnableActivityFeed/PublishUserActivities/UploadUserActivities=0                                  |
+| enterprise.activity.windows.com                            | Removed                        | Same Activity Feed policy                                                                        |
+| cs.dds.microsoft.com                                       | Removed at source              | CDP/MMX off, CDP services disabled, work account removed, OS MSA blocked/local account, sync off |
+| graph.microsoft.com (CrossDeviceResume source)             | Removed for background Resume  | Settings > Apps > Resume = Off                                                                   |
+| inference.location.live.net                                | Removed                        | Settings > Privacy & security > Location > Location services = Off                               |
+| agps.location.live.net                                     | Removed                        | Same Location switch                                                                             |
+| fd.api.iris.microsoft.com                                  | Hosts-sinkholed                | Spotlight disabled + 0.0.0.0 and :: in hosts                                                     |
+| assets.msn.com                                             | Removed with Widgets/Spotlight | Widgets and consumer-content policies                                                            |
+| arc.msn.com                                                | Removed with Widgets/Spotlight | Widgets and consumer-content policies                                                            |
+| api.msn.com                                                | Removed with Widgets/Spotlight | Widgets and consumer-content policies                                                            |
+| www.msn.com                                                | Removed with Widgets/Spotlight | Widgets and consumer-content policies                                                            |
+| c.msn.com                                                  | Removed with Widgets/Spotlight | Widgets and consumer-content policies                                                            |
+| windows.msn.com                                            | Removed with Widgets/Spotlight | Widgets and consumer-content policies                                                            |
+| e.clarity.ms / c.clarity.ms / www.clarity.ms               | Removed with source features   | Widgets/consumer-content surfaces disabled                                                       |
+| sb.scorecardresearch.com                                   | Removed with source features   | Widgets/consumer-content surfaces disabled                                                       |
+| www.bing.com (Windows Search integration)                  | Removed                        | GPO web-search disables + DisableSearchBoxSuggestions=1                                          |
+| www.msftconnecttest.com                                    | Removed                        | NCSI active tests disabled                                                                       |
+| dns.msftncsi.com                                           | Removed                        | NCSI active tests disabled                                                                       |
+| array\*.prod.do.dsp.mp.microsoft.com                       | Removed                        | Delivery Optimization DODownloadMode=99                                                          |
+| config.edge.skype.com                                      | Removed                        | Edge/WebView2/EdgeUpdate experimentation/config policies = 0                                     |
+| ic3.events.data.microsoft.com                              | Removed with Teams             | Teams uninstalled                                                                                |
+| teams.microsoft.com                                        | Removed with Teams             | Teams uninstalled                                                                                |
+| teams.live.com                                             | Removed with Teams             | Teams uninstalled                                                                                |
+| \*.trouter.skype.com                                       | Removed with Teams             | Teams uninstalled                                                                                |
+| login.microsoftonline.com (idle Teams/work-account source) | Removed from idle background   | Teams removed + work/school account disconnected; not globally blocked                           |
 
 ## Disabled/removed Windows or app components
 
@@ -61,10 +61,6 @@ Snapshot: 2026-08-30
 - NCSI active probes: disabled.
 - CEIP / Help "Did you know?" / Windows Messenger CEIP: disabled.
 - Explorer SmartScreen: disabled by deliberate choice.
-- Defender Core telemetry: disabled.
-- Defender Core ECS integration: disabled.
-- Defender gradual release: disabled.
-- Defender Network Protection performance telemetry: disabled.
 - Edge/WebView2/EdgeUpdate experimentation/config service: disabled.
 - Delivery Optimization peer/coordination behavior: mode 99.
 - Visual Studio SQM telemetry: disabled.
@@ -82,33 +78,31 @@ The experimental cs.dds.microsoft.com Dynamic Keyword Address firewall block was
 
 ## Intentionally kept endpoints / services
 
-| Endpoint/component | Why kept |
-|---|---|
-| wdcp.microsoft.com | Defender MAPS/cloud protection |
-| nf.smartscreen.microsoft.com | Defender Network Protection; attributed to NisSrv.exe |
-| reflector.defender.microsoft.com | Defender connectivity/IPv6 probe |
-| tas02.cwsmu.update.microsoft.com / tas02.sls.update.microsoft.com | Windows/Defender update metadata |
-| download.windowsupdate.com | Windows/Defender updates |
-| au.download.windowsupdate.com | Windows/Defender updates and definition delta packages |
-| ctldl.windowsupdate.com | Root/disallowed certificate trust-list updates |
-| time.windows.com | Windows Time synchronization |
-| login.live.com | wlidsvc/device authentication needed by Windows licensing/serviceability |
-| licensing.mp.microsoft.com | Windows/app licensing and activation |
-| storecatalogrevocation.storequality.microsoft.com | Revocation of malicious Store-app licenses |
-| ecs.office.com | Office 2024 servicing/config; Office callers identified |
-| mobile.events.data.microsoft.com when OfficeClickToRun.exe is caller | Office Click-to-Run servicing |
-| officeclient.microsoft.com | Office shared/serviceability infrastructure |
-| odc.officeapps.live.com | Office shared/serviceability infrastructure |
-| mrodevicemgr.officeapps.live.com | Office serviceability infrastructure |
-| f.c2r.ts.cdn.office.net | Office Click-to-Run update CDN |
-| substrate.office.com | Office account/connected infrastructure when Office uses it |
-| edge.microsoft.com | WebView2 Runtime component/support traffic |
-| catalog.gamepass.com | Gaming Services; deliberately left alone |
-| device.auth.xboxlive.com | Xbox authentication/XblAuthManager |
-| AMER33.azure-devices.net:8883 | Dell SupportAssistAgent using Azure IoT |
-| dellupdater.dell.com | Dell SupportAssist/remediation/update |
-| hb.apis.dell.com | Dell support software |
-| tm-sdk.platinumai.net | Dell SupportAssist-related infrastructure |
+| Endpoint/component                                                   | Why kept                                                                 |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| reflector.defender.microsoft.com                                     | Defender connectivity/IPv6 probe                                         |
+| tas02.cwsmu.update.microsoft.com / tas02.sls.update.microsoft.com    | Windows/Defender update metadata                                         |
+| download.windowsupdate.com                                           | Windows/Defender updates                                                 |
+| au.download.windowsupdate.com                                        | Windows/Defender updates and definition delta packages                   |
+| ctldl.windowsupdate.com                                              | Root/disallowed certificate trust-list updates                           |
+| time.windows.com                                                     | Windows Time synchronization                                             |
+| login.live.com                                                       | wlidsvc/device authentication needed by Windows licensing/serviceability |
+| licensing.mp.microsoft.com                                           | Windows/app licensing and activation                                     |
+| storecatalogrevocation.storequality.microsoft.com                    | Revocation of malicious Store-app licenses                               |
+| ecs.office.com                                                       | Office 2024 servicing/config; Office callers identified                  |
+| mobile.events.data.microsoft.com when OfficeClickToRun.exe is caller | Office Click-to-Run servicing                                            |
+| officeclient.microsoft.com                                           | Office shared/serviceability infrastructure                              |
+| odc.officeapps.live.com                                              | Office shared/serviceability infrastructure                              |
+| mrodevicemgr.officeapps.live.com                                     | Office serviceability infrastructure                                     |
+| f.c2r.ts.cdn.office.net                                              | Office Click-to-Run update CDN                                           |
+| substrate.office.com                                                 | Office account/connected infrastructure when Office uses it              |
+| edge.microsoft.com                                                   | WebView2 Runtime component/support traffic                               |
+| catalog.gamepass.com                                                 | Gaming Services; deliberately left alone                                 |
+| device.auth.xboxlive.com                                             | Xbox authentication/XblAuthManager                                       |
+| AMER33.azure-devices.net:8883                                        | Dell SupportAssistAgent using Azure IoT                                  |
+| dellupdater.dell.com                                                 | Dell SupportAssist/remediation/update                                    |
+| hb.apis.dell.com                                                     | Dell support software                                                    |
+| tm-sdk.platinumai.net                                                | Dell SupportAssist-related infrastructure                                |
 
 ## Defender state to preserve
 
@@ -116,14 +110,6 @@ The experimental cs.dds.microsoft.com Dynamic Keyword Address firewall block was
 - RealTimeProtectionEnabled=True
 - BehaviorMonitorEnabled=True
 - IoavProtectionEnabled=True
-- MAPSReporting=2
-- SubmitSamplesConsent=1
-- DisableBlockAtFirstSeen=False (False means Block at First Sight is ON)
-- EnableNetworkProtection=1
-- DisableNetworkProtectionPerfTelemetry=True
-- DisableCoreServiceTelemetry=True
-- DisableCoreServiceECSIntegration=True
-- DisableGradualRelease=True
 
 ## Update/trust state to preserve
 
