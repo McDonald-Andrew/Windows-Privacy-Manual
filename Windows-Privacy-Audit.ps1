@@ -55,7 +55,6 @@ Check-Reg 'Activity/CDP' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'Ena
 # Spotlight / consumer content
 $u='HKCU:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
 Check-Reg 'Spotlight' $u 'ConfigureWindowsSpotlight' 0
-Check-Reg 'Spotlight' $u 'IncludeEnterpriseSpotlight' 0
 Check-Reg 'Spotlight' $u 'DisableSpotlightCollectionOnDesktop' 1
 Check-Reg 'Spotlight' $u 'DisableTailoredExperiencesWithDiagnosticData' 1
 Check-Reg 'Spotlight' $u 'DisableThirdPartySuggestions' 1
@@ -66,7 +65,6 @@ Check-Reg 'Spotlight' $u 'DisableWindowsSpotlightWindowsWelcomeExperience' 1
 $m='HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
 Check-Reg 'Spotlight' $m 'DisableCloudOptimizedContent' 1
 Check-Reg 'Spotlight' $m 'DisableConsumerAccountStateContent' 1
-Check-Reg 'Spotlight' $m 'DisableCopilotPinScreen' 1
 Check-Reg 'Spotlight' $m 'DisableWindowsConsumerFeatures' 1
 
 Check-Reg 'Widgets' 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' 'AllowNewsAndInterests' 0
@@ -140,22 +138,7 @@ Check-Reg 'WER' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporti
 $ss=Get-RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'EnableSmartScreen'
 Add-Check 'SmartScreen' 'Explorer SmartScreen policy' 0 $ss ($ss -eq 0) 'GPO'
 
-# Root certificate automatic update should remain ON.
-$root=Get-RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\SystemCertificates\AuthRoot' 'DisableRootAutoUpdate'
-Add-Check 'Security' 'Automatic Root Certificate Update' 'Enabled (value absent or 0)' $root ($null -eq $root -or $root -eq 0) 'GPO/registry'
-
 # Defender
-$mp=Get-MpPreference
-if($mp){
-    Add-Check 'Defender' 'DisableCoreServiceTelemetry' $true $mp.DisableCoreServiceTelemetry ($mp.DisableCoreServiceTelemetry -eq $true) 'PowerShell'
-    Add-Check 'Defender' 'DisableCoreServiceECSIntegration' $true $mp.DisableCoreServiceECSIntegration ($mp.DisableCoreServiceECSIntegration -eq $true) 'PowerShell'
-    Add-Check 'Defender' 'DisableGradualRelease' $true $mp.DisableGradualRelease ($mp.DisableGradualRelease -eq $true) 'PowerShell'
-    Add-Check 'Defender' 'DisableNetworkProtectionPerfTelemetry' $true $mp.DisableNetworkProtectionPerfTelemetry ($mp.DisableNetworkProtectionPerfTelemetry -eq $true) 'PowerShell'
-    Add-Check 'Defender' 'EnableNetworkProtection' 1 $mp.EnableNetworkProtection ($mp.EnableNetworkProtection -eq 1) 'PowerShell'
-    Add-Check 'Defender' 'MAPSReporting' 2 $mp.MAPSReporting ($mp.MAPSReporting -eq 2) 'PowerShell'
-    Add-Check 'Defender' 'SubmitSamplesConsent' 1 $mp.SubmitSamplesConsent ($mp.SubmitSamplesConsent -eq 1) 'PowerShell'
-    Add-Check 'Defender' 'Block at First Sight' 'ON (DisableBlockAtFirstSeen=False)' $mp.DisableBlockAtFirstSeen ($mp.DisableBlockAtFirstSeen -eq $false) 'PowerShell'
-}
 $st=Get-MpComputerStatus
 if($st){
     Add-Check 'Defender' 'AntivirusEnabled' $true $st.AntivirusEnabled ($st.AntivirusEnabled -eq $true)
