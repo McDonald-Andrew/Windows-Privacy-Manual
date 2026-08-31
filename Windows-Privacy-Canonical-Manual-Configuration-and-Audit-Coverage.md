@@ -495,11 +495,22 @@ Component coverage result: every component or state from the prior table is assi
 
 ### 5.1 What the script actually audits
 
-The current script is an effective-state audit. It reads service status, live registry values, Defender state, hosts entries, package state, and `dsregcmd` output.
+The PowerShell audit only verifies the controls expected to suppress an endpoint.
 
-It does not inspect the binary `Registry.pol` files and does not prove that a value was created through the Local GPO rather than written directly into the live registry.
+For example:
 
-This document adopts `Registry.pol` as the canonical owner for Administrative Template settings.
+- The script can verify `AllowTelemetry = 0` and `DiagTrack` disabled.
+- It cannot prove that `v10.events.data.microsoft.com` emitted zero packets without observing network traffic.
+
+A manual audit's steps are:
+
+1. Enable WFP 5156 and process-creation 4688 auditing temporarily.
+2. Cold boot offline.
+3. Start Wireshark.
+4. Reconnect the network.
+5. Idle for 25-30 minutes.
+6. Correlate endpoint, destination, source port, executable, and PID.
+7. Disable temporary auditing afterward.
 
 ### 5.2 Fully automated effective-state checks already present
 
@@ -535,26 +546,7 @@ The script currently checks:
 - Absence of the old DDS firewall rule and Dynamic Keyword Address.
 - Temporary WFP/process-creation auditing is off.
 
-### 5.3 Automatable items the script does not currently check
-
-These are not manual-only. The current script omits them even though they can be audited automatically.
-
-| Missing automated check                                               | Why it matters                                                                                                                                                               |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Actual Local GPO / `Registry.pol` provenance                          | Every GPO-backed check reads only the effective registry. The script can pass while `gpedit.msc` still says Not Configured.                                                  |
-| `DisableWebSearch = 1`                                                | One of the two main Windows Search web policies is not checked.                                                                                                              |
-| `ConnectedSearchUseWeb = 0`                                           | The second main Windows Search web policy is not checked.                                                                                                                    |
-| `DisableSettingSync` and the selected per-category SettingSync values | The script only prints Sync as a manual reminder. It does not inspect the effective SettingSync policy.                                                                      |
-| Microsoft Teams absence                                               | Teams-derived endpoints can return if Teams is reinstalled. The script does not check AppX/MSI Teams state.                                                                  |
-| Microsoft Edge browser absence                                        | The script does not distinguish the removed Edge browser from the intentionally retained WebView2 Runtime.                                                                   |
-| Help and Support Center "Did you know?" policy                        | This configured Internet Communication policy is not checked.                                                                                                                |
-| Windows Messenger CEIP policy                                         | This configured Internet Communication policy is not checked.                                                                                                                |
-| Current interactive Windows account is local                          | `dsregcmd` proves no Entra/Workplace registration and no WAM default, but it does not by itself prove the logged-in account is a local SAM account.                          |
-| Windows Update `Configure Automatic Updates` is Not Configured        | The script prints this as a manual check but does not inspect Local GPO or the effective Windows Update policy state.                                                        |
-| VS Code settings file missing                                         | The script silently skips both VS Code checks if `settings.json` is absent instead of reporting a CHECK result.                                                              |
-| Full Visual Studio product absence                                    | The script checks SQM policy but not whether Visual Studio Community has been reinstalled. This was not required for endpoint coverage, but it is useful historical context. |
-
-### 5.4 Manual or owner-UI checks that are intentionally not fully automated
+### 5.3 Manual or owner-UI checks that are intentionally not fully automated
 
 | Manual item                             | Reason                                                                                                                                    |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -565,25 +557,6 @@ These are not manual-only. The current script omits them even though they can be
 | OS login converted to local account     | This can be automated, but the current script does not do so and the account conversion itself should remain an explicit identity action. |
 | Package removal when no UI is available | `Microsoft.StartExperiencesApp` removal may require AppX tooling.                                                                         |
 | Edge uninstallation availability        | Whether the Uninstall action exists depends on the Windows build and region.                                                              |
-
-### 5.5 Endpoint absence
-
-The PowerShell audit only verifies the controls expected to suppress an endpoint.
-
-For example:
-
-- The script can verify `AllowTelemetry = 0` and `DiagTrack` disabled.
-- It cannot prove that `v10.events.data.microsoft.com` emitted zero packets without observing network traffic.
-
-A manual audit's steps are:
-
-1. Enable WFP 5156 and process-creation 4688 auditing temporarily.
-2. Cold boot offline.
-3. Start Wireshark.
-4. Reconnect the network.
-5. Idle for 25-30 minutes.
-6. Correlate endpoint, destination, source port, executable, and PID.
-7. Disable temporary auditing afterward.
 
 ## 6. Final audit verdict
 

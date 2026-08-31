@@ -5,12 +5,8 @@ $ErrorActionPreference = 'SilentlyContinue'
 #   - Settings > Apps > Resume
 #   - Settings > Privacy & security > Location > Location services
 #   - Office Account Privacy / connected-experience UI controls
-#   - Configure Automatic Updates being literally "Not Configured" in Local GPO
-#   - absence of the VS Code settings.json file
-#   - Local GPO / Registry.pol provenance
 #
-# Those remain manual/provenance checks. Registry-backed checks below verify
-# effective state only; they do not claim the value originated in Registry.pol.
+# Those remain manual checks.
 $results = New-Object System.Collections.Generic.List[object]
 
 function Add-Check {
@@ -24,10 +20,78 @@ function Get-RegValue {
     param([string]$Path,[string]$Name)
     try { (Get-ItemProperty -Path $Path -Name $Name -ErrorAction Stop).$Name } catch { $null }
 }
+function Get-RegistryPolEntries {
+    param([string]$Path)
+    if(-not (Test-Path -LiteralPath $Path)){ return @() }
+    try{
+        $bytes=[System.IO.File]::ReadAllBytes($Path)
+        if($bytes.Length -lt 8 -or [System.BitConverter]::ToUInt32($bytes,0) -ne 0x67655250){ return @() }
+        $entries=New-Object System.Collections.Generic.List[object]
+        $i=8
+        while($i -lt $bytes.Length){
+            while(($i+1) -lt $bytes.Length -and $bytes[$i] -eq 0 -and $bytes[$i+1] -eq 0){ $i+=2 }
+            if(($i+1) -ge $bytes.Length){ break }
+            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]'['){ break }
+            $i+=2
+            $start=$i
+            while(($i+1) -lt $bytes.Length -and -not ($bytes[$i] -eq 0 -and $bytes[$i+1] -eq 0)){ $i+=2 }
+            if(($i+1) -ge $bytes.Length){ break }
+            $key=[System.Text.Encoding]::Unicode.GetString($bytes,$start,$i-$start); $i+=2
+            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
+            $start=$i
+            while(($i+1) -lt $bytes.Length -and -not ($bytes[$i] -eq 0 -and $bytes[$i+1] -eq 0)){ $i+=2 }
+            if(($i+1) -ge $bytes.Length){ break }
+            $name=[System.Text.Encoding]::Unicode.GetString($bytes,$start,$i-$start); $i+=2
+            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
+            if(($i+3) -ge $bytes.Length){ break }; $type=[System.BitConverter]::ToUInt32($bytes,$i); $i+=4
+            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
+            if(($i+3) -ge $bytes.Length){ break }; $size=[System.BitConverter]::ToUInt32($bytes,$i); $i+=4
+            if([System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]';'){ break }; $i+=2
+            if(($i+[int64]$size) -gt $bytes.Length){ break }
+            $dataBytes=New-Object byte[] ([int]$size)
+            if($size -gt 0){ [System.Array]::Copy($bytes,$i,$dataBytes,0,[int]$size); $i+=[int]$size }
+            if(($i+1) -ge $bytes.Length -or [System.BitConverter]::ToUInt16($bytes,$i) -ne [int][char]']'){ break }; $i+=2
+            $data=switch($type){
+                1 { [System.Text.Encoding]::Unicode.GetString($dataBytes).TrimEnd([char]0) }
+                2 { [System.Text.Encoding]::Unicode.GetString($dataBytes).TrimEnd([char]0) }
+                4 { if($dataBytes.Length -ge 4){ [System.BitConverter]::ToUInt32($dataBytes,0) }else{ $null } }
+                5 { if($dataBytes.Length -ge 4){ [uint32](($dataBytes[0]-shl 24)-bor($dataBytes[1]-shl 16)-bor($dataBytes[2]-shl 8)-bor $dataBytes[3]) }else{ $null } }
+                7 { ([System.Text.Encoding]::Unicode.GetString($dataBytes).TrimEnd([char]0) -split "`0") -join ';' }
+                11 { if($dataBytes.Length -ge 8){ [System.BitConverter]::ToUInt64($dataBytes,0) }else{ $null } }
+                default { [System.BitConverter]::ToString($dataBytes).Replace('-','') }
+            }
+            $entries.Add([pscustomobject]@{Key=$key;Name=$name;Type=$type;Data=$data})
+        }
+        return @($entries)
+    }catch{ return @() }
+}
+function Get-LocalGpoValue {
+    param([string]$Path,[string]$Name)
+    if($Path -match '^HKLM:\\(.+)$'){ $pol="$env:SystemRoot\System32\GroupPolicy\Machine\Registry.pol"; $key=$Matches[1] }
+    elseif($Path -match '^HKCU:\\(.+)$'){ $pol="$env:SystemRoot\System32\GroupPolicy\User\Registry.pol"; $key=$Matches[1] }
+    else{ return [pscustomobject]@{Configured=$false;Data=$null;PolPath='Unsupported hive'} }
+    $configured=$false; $data=$null
+    foreach($e in @(Get-RegistryPolEntries $pol | Where-Object {$_.Key -ieq $key})){
+        if($e.Name -ieq $Name){ $configured=$true; $data=$e.Data; continue }
+        if($e.Name -ieq "**Del.$Name"){ $configured=$false; $data=$null; continue }
+        if($e.Name -ieq '**DelVals'){ $configured=$false; $data=$null; continue }
+        if($e.Name -ieq '**DeleteValues' -and $null -ne $e.Data){
+            if(@("$($e.Data)" -split ';') | Where-Object {$_ -ieq $Name}){ $configured=$false; $data=$null }
+        }
+    }
+    [pscustomobject]@{Configured=$configured;Data=$data;PolPath=$pol}
+}
+function Check-LocalGpo {
+    param([string]$Category,[string]$Path,[string]$Name,[object]$Expected)
+    $p=Get-LocalGpoValue $Path $Name
+    $actual=if($p.Configured){"$($p.Data) [$($p.PolPath)]"}else{"Not Configured [$($p.PolPath)]"}
+    Add-Check 'GPO provenance' "$Category :: $Path\$Name" "Configured locally as $Expected" $actual ($p.Configured -and "$($p.Data)" -eq "$Expected") 'Registry.pol'
+}
 function Check-Reg {
     param([string]$Category,[string]$Path,[string]$Name,[object]$Expected,[string]$Method='Registry/GPO')
     $actual=Get-RegValue $Path $Name
     Add-Check $Category "$Path\$Name" $Expected $actual ($null -ne $actual -and "$actual" -eq "$Expected") $Method
+    if($Method -eq 'Registry/GPO'){ Check-LocalGpo $Category $Path $Name $Expected }
 }
 
 Write-Host "`n=== Windows Privacy / Network Hardening Audit ===" -ForegroundColor Cyan
@@ -128,6 +192,14 @@ Check-Reg 'Internet Communication' 'HKLM:\SOFTWARE\Policies\Microsoft\Messenger\
 
 Check-Reg 'Delivery Optimization' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization' 'DODownloadMode' 99
 
+# Configure Automatic Updates should be literally Not Configured in Local GPO
+$wuPath='HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+$wuNames=@('NoAutoUpdate','AUOptions','AutomaticMaintenanceEnabled','ScheduledInstallDay','ScheduledInstallTime','ScheduledInstallEveryWeek')
+$wuLocal=@($wuNames | ForEach-Object { $p=Get-LocalGpoValue $wuPath $_; if($p.Configured){ "$_=$($p.Data)" } })
+Add-Check 'Windows Update' 'Local GPO: Configure Automatic Updates' 'Not Configured' $(if($wuLocal){$wuLocal -join '; '}else{'Not Configured'}) (-not [bool]$wuLocal) 'Registry.pol'
+$wuEffective=@($wuNames | ForEach-Object { $v=Get-RegValue $wuPath $_; if($null -ne $v){ "$_=$v" } })
+Add-Check 'Windows Update' 'Effective Configure Automatic Updates policy state' 'No configured values' $(if($wuEffective){$wuEffective -join '; '}else{'No configured values'}) (-not [bool]$wuEffective) 'Registry/GPO'
+
 # Edge/WebView experimentation
 Check-Reg 'Edge' 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'ExperimentationAndConfigurationServiceControl' 0
 Check-Reg 'Edge' 'HKLM:\SOFTWARE\Policies\Microsoft\Edge\WebView2' 'ExperimentationAndConfigurationServiceControl' 0
@@ -137,6 +209,7 @@ Check-Reg 'Edge' 'HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate' 'UpdaterExperime
 Check-Reg 'WER' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting' 'Disabled' 1
 $ss=Get-RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'EnableSmartScreen'
 Add-Check 'SmartScreen' 'Explorer SmartScreen policy' 0 $ss ($ss -eq 0) 'GPO'
+Check-LocalGpo 'SmartScreen' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'EnableSmartScreen' 0
 
 # Defender
 $st=Get-MpComputerStatus
@@ -269,7 +342,23 @@ if(Test-Path $vscode){
     $raw=Get-Content $vscode -Raw
     Add-Check 'Developer tools' 'VS Code telemetry.telemetryLevel' 'off' $(if($raw -match '"telemetry\.telemetryLevel"\s*:\s*"off"'){'off'}else{'not found'}) ($raw -match '"telemetry\.telemetryLevel"\s*:\s*"off"') 'settings.json'
     Add-Check 'Developer tools' 'VS Code workbench.enableExperiments' 'false' $(if($raw -match '"workbench\.enableExperiments"\s*:\s*false'){'false'}else{'not found'}) ($raw -match '"workbench\.enableExperiments"\s*:\s*false') 'settings.json'
+}else{
+    Add-Check 'Developer tools' 'VS Code telemetry.telemetryLevel' 'off' 'settings.json missing' $false 'settings.json'
+    Add-Check 'Developer tools' 'VS Code workbench.enableExperiments' 'false' 'settings.json missing' $false 'settings.json'
 }
+
+# Full Visual Studio product should remain absent
+$vswhere="${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$vsPaths=@()
+if(Test-Path $vswhere){
+    foreach($root in @(& $vswhere -products * -property installationPath)){
+        $devenv=Join-Path $root 'Common7\IDE\devenv.exe'
+        if(Test-Path $devenv){ $vsPaths+=$devenv }
+    }
+}
+$vsPaths+=@(Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe","$env:ProgramFiles\Microsoft Visual Studio\*\*\Common7\IDE\devenv.exe","${env:ProgramFiles(x86)}\Microsoft Visual Studio *\Common7\IDE\devenv.exe","$env:ProgramFiles\Microsoft Visual Studio *\Common7\IDE\devenv.exe" -File | Select-Object -ExpandProperty FullName)
+$vsPaths=@($vsPaths | Where-Object {$_} | Select-Object -Unique)
+Add-Check 'Developer tools' 'Full Visual Studio product installed' 'Absent' $(if($vsPaths){$vsPaths -join ', '}else{'Absent'}) (-not [bool]$vsPaths) 'vswhere/filesystem'
 
 # Account state
 
@@ -344,9 +433,6 @@ Write-Host "`nManual / intentionally excluded from automatic PASS-CHECK results:
 Write-Host "  Settings > Apps > Resume = Off"
 Write-Host "  Settings > Privacy & security > Location > Location services = Off"
 Write-Host "  Office Account Privacy = your maximally restricted state"
-Write-Host "  Local GPO: Configure Automatic Updates = Not Configured"
-Write-Host "  Local GPO / Registry.pol provenance: verify separately with gpresult, RSOP, or LGPO tooling if desired"
-Write-Host "  VS Code settings.json absence is not treated as a failure; VS Code values are checked only when the file exists"
 
 $out=Split-Path -Parent $MyInvocation.MyCommand.Path
 if(-not $out){$out=(Get-Location).Path}
