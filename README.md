@@ -493,6 +493,16 @@ Component coverage result: every component or state from the prior table is assi
 
 ## 5. Audit of Windows-Privacy-Audit.ps1
 
+To run, open Powershell with Administrator priviledges and in the window, enter:
+
+```ps1
+Set-ExecutionPolicy -Scope Process Bypass -Force
+
+Unblock-File -LiteralPath  .\Windows-Privacy-Audit.ps1
+
+.\Windows-Privacy-Audit.ps1
+```
+
 ### 5.1 What the script actually audits
 
 The PowerShell audit only verifies the controls expected to suppress an endpoint.
