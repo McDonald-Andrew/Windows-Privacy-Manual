@@ -354,9 +354,9 @@ foreach($p in @(
 }
 
 # Old DDS firewall experiment should stay gone
-$r=Get-NetFirewallRule -DisplayName 'BLOCK Microsoft Device Directory Service'
+$r=Get-NetFirewallRule -DisplayName 'BLOCK Microsoft Device Directory Service' -ErrorAction SilentlyContinue
 Add-Check 'Firewall' 'Old DDS firewall rule' 'Absent' $(if($r){'Present'}else{'Absent'}) (-not [bool]$r) 'Firewall cleanup'
-$k=Get-NetFirewallDynamicKeywordAddress -AllAutoResolve | Where-Object Keyword -eq 'cs.dds.microsoft.com'
+$k=Get-NetFirewallDynamicKeywordAddress -AllAutoResolve -ErrorAction SilentlyContinue | Where-Object Keyword -eq 'cs.dds.microsoft.com'
 Add-Check 'Firewall' 'Old DDS Dynamic Keyword Address' 'Absent' $(if($k){'Present'}else{'Absent'}) (-not [bool]$k) 'Firewall cleanup'
 
 # Temporary forensic auditing should normally be off
@@ -365,9 +365,15 @@ Add-Check 'Forensics' 'Filtering Platform Connection auditing' 'No Auditing' (($
 $pc=(auditpol /get /subcategory:"Process Creation" | Out-String)
 Add-Check 'Forensics' 'Process Creation auditing' 'No Auditing' (($pc -split "`n"|?{$_ -match 'Process Creation'}) -join ' ') ($pc -match 'No Auditing') 'auditpol'
 
-$results | Sort-Object Category,Item | Format-Table -AutoSize -Wrap
-$needs=$results | Where-Object Result -eq 'CHECK'
+$orderedResults=@($results | Sort-Object Category,Item)
+$orderedResults | Select-Object Result,Category,Item | Format-Table -AutoSize -Wrap
+$needs=@($orderedResults | Where-Object Result -eq 'CHECK')
 Write-Host "`n$($results.Count) static checks; $($needs.Count) need review." -ForegroundColor $(if($needs){'Yellow'}else{'Green'})
+
+if($needs.Count -gt 0){
+    Write-Host "`nItems needing review:" -ForegroundColor Yellow
+    $needs | Format-List Category,Item,Expected,Actual,Method
+}
 
 Write-Host "`nManual / intentionally excluded from automatic PASS-CHECK results:" -ForegroundColor Cyan
 Write-Host "  Settings > Apps > Resume = Off"
