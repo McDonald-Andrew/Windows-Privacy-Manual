@@ -27,7 +27,7 @@ Microsoft's LGPO utility can import and apply Registry Policy files and LGPO tex
 2. `CDPUserSvc\UserServiceFlags` is service-template metadata, not an ordinary Administrative Template policy and not a normal Services.msc property. Exact parity with the original machine may require a manual Registry Editor change under the service template. This is the narrow exception to the service-only rule.
 3. `Microsoft.StartExperiencesApp` might not be exposed in Settings > Installed apps. Exact package removal may require AppX tooling. There is no honest GPO substitute for an application that was actually removed.
 4. Edge browser uninstallation is build, region, and servicing-state dependent. Do not remove Microsoft Edge WebView2 Runtime; applications depend on it and it must continue receiving security updates.
-5. The Defender Core telemetry, Defender Core ECS, gradual-release, and Network Protection performance-telemetry controls may not appear in the stock Local Group Policy editor. Supported Defender cmdlets or MDM policy are the canonical controls for those items.
+5. The current Defender preservation baseline covers engine health only: antivirus, real-time protection, behavior monitoring, and downloaded-file scanning must remain enabled. It does not claim to audit every Defender privacy, cloud-protection, or experimentation preference.
 
 ## 2. Canonical control catalog
 
@@ -39,11 +39,11 @@ Each control has an ID. The endpoint and component coverage tables later in this
 
 Open: `Computer Configuration > Administrative Templates > Windows Components > Data Collection and Preview Builds`.
 
-Configure `Allow Diagnostic Data` to the Enterprise option that represents diagnostic data off / Security / value 0. Older ADMX versions may call this policy `Allow Telemetry`.
+Configure `Allow Diagnostic Data` to `Enabled > Diagnostic data off (not recommended)`. Older ADMX versions may call this policy `Allow Telemetry`.
 
 Expected effective value: `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\DataCollection\AllowTelemetry = 0`.
 
-- This policy works with SCM-01, because the `DiagTrack` service was also disabled.
+- This policy works with SCM-02, because the `DiagTrack` service was also disabled.
 
 #### GPO-02 - Widgets
 
@@ -82,7 +82,7 @@ Set these to `Enabled`:
 
 Expected effective values under: `HKEY_CURRENT_USER\SOFTWARE\Policies\Microsoft\Windows\CloudContent`
 
-- `ConfigureWindowsSpotlight = 0`
+- `ConfigureWindowsSpotlight = 2`
 - `DisableSpotlightCollectionOnDesktop = 1`
 - `DisableTailoredExperiencesWithDiagnosticData = 1`
 - `DisableThirdPartySuggestions = 1`
@@ -153,7 +153,7 @@ In the same Internet Communication settings folder (GPO-07), set these to `Enabl
 
 - `Turn off Windows Customer Experience Improvement Program`
 - `Turn off Help and Support Center "Did you know?" content`
-- `Turn off Windows Messenger Customer Experience Improvement Program`
+- `Turn off the Windows Messenger Customer Experience Improvement Program`
 
 Expected effective values:
 
@@ -204,7 +204,7 @@ Preferred policy: If the ADMX entry exists, open `Computer Configuration > Admin
 
 Expected effective value: `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WorkplaceJoin\BlockAADWorkplaceJoin = 1`.
 
-- If no ADMX entry exists, import this Machine policy record with `LGPO.exe`.
+- Optionally import it as a Machine policy record with `LGPO.exe` when `Registry.pol` provenance and repeatable deployment are required.
 - This policy supplements ID-01; it does not replace disconnecting an existing work or school registration.
 
 #### GPO-12 - Windows Error Reporting
@@ -279,18 +279,7 @@ Desired policy record: `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\VisualStu
 
 ### 2.2 Service Control Manager controls
 
-#### SCM-01 - DiagTrack
-
-Open `services.msc`:
-
-- Service: `Connected User Experiences and Telemetry`
-- Service name: `DiagTrack`
-- Stop the service.
-- Set Startup type to `Disabled`.
-
-Expected effective value: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DiagTrack\Start=4`
-
-#### SCM-02 - CDPSvc
+#### SCM-01 - CDPSvc
 
 Open `services.msc`:
 
@@ -300,6 +289,17 @@ Open `services.msc`:
 - Set Startup type to `Disabled`.
 
 Expected effective value: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\CDPSvc\Start=4`
+
+#### SCM-02 - DiagTrack
+
+Open `services.msc`:
+
+- Service: `Connected User Experiences and Telemetry`
+- Service name: `DiagTrack`
+- Stop the service.
+- Set Startup type to `Disabled`.
+
+Expected effective value: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\DiagTrack\Start=4`
 
 #### SCM-03 - CDPUserSvc service template
 
@@ -312,9 +312,30 @@ Expected effective values under: `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Se
 - `Start=4`
 - `UserServiceFlags = 0`
 
-### 2.3 Hosts-file controls
+### 2.3 Microsoft Defender preservation control
 
-Edit `%SystemRoot%\System32\drivers\etc\hosts` as administrator.
+#### DEF-01 - Defender engine health
+
+Expected effective values from `Get-MpComputerStatus`:
+
+- `AntivirusEnabled = True`
+- `RealTimeProtectionEnabled = True`
+- `BehaviorMonitorEnabled = True`
+- `IoavProtectionEnabled = True`
+
+Expected policy-backed values in Registry Editor, when the corresponding policies are explicitly configured, under `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection`:
+
+- `DisableRealtimeMonitoring = 0`
+- `DisableBehaviorMonitoring = 0`
+- `DisableIOAVProtection = 0`
+
+`AntivirusEnabled` has no single authoritative Registry Editor equivalent, so verify it with `Get-MpComputerStatus`.
+
+These health states do not verify every Defender preference, including Block at First Sight, cloud-delivered protection, sample submission, or Defender experimentation/configuration controls. Do not use the legacy `DisableAntiSpyware` value as proof of the current Defender antivirus state.
+
+### 2.4 Hosts-file controls
+
+Edit `$env:SystemRoot\System32\drivers\etc\hosts` as administrator.
 
 #### HOST-01 - Windows diagnostic-configuration endpoint
 
@@ -336,7 +357,7 @@ Add:
 
 Flush the resolver cache after changing the file.
 
-### 2.4 Package and application-state controls
+### 2.5 Package and application-state controls
 
 #### APP-01 - Microsoft.StartExperiencesApp removed
 
@@ -365,9 +386,9 @@ In VS Code Settings or `settings.json`:
 - `telemetry.telemetryLevel = "off"`
 - `workbench.enableExperiments = false`
 
-### 2.5 Account and identity controls
+### 2.6 Account and identity controls
 
-ID-01 and ID-02 are Security Options policy and is not an Administrative Template `Registry.pol` item.
+ID-01 and ID-02 are account and identity actions, not Administrative Template `Registry.pol` items. ID-03 is a Security Options policy stored in the local security-policy database.
 
 #### ID-01 - Disconnect work or school registration
 
@@ -383,17 +404,17 @@ Open: `Settings > Accounts > Your info`
 
 - Choose `Sign in with a local account instead`.
 - Complete the conversion before enabling the strict Microsoft-account block.
-- Verify `WamDefaultSet : NO` after removing the OS-level Microsoft identity.
+- Verify `WamDefaultSet : NO` after removing the OS-level Microsoft identity (with `dsregcmd /status`).
 
 #### ID-03 - Block Microsoft accounts at the OS level
 
-Open: `Computer Configuration > Windows Settings > Security Settings > Local Policies > Security Options`
+With Local Group Policy Editor, open: `Computer Configuration > Windows Settings > Security Settings > Local Policies > Security Options`
 
 Set: `Accounts: Block Microsoft accounts` to: `Users can't add or log on with Microsoft accounts`
 
 Expected effective value: `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\NoConnectedUser=3`
 
-### 2.6 Settings-only and application-only controls
+### 2.7 Settings-only and application-only controls
 
 #### SET-01 - Cross-device Resume off
 
@@ -418,15 +439,15 @@ Every endpoint/pattern from the removed-or-blocked endpoint table is mapped belo
 
 | Endpoint or pattern                                        | Canonical controls                                                 | Coverage verdict                | Notes                                                                                       |
 | ---------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| `v10.events.data.microsoft.com`                            | GPO-01 + SCM-01                                                    | Covered                         | Diagnostic event upload source disabled                                                     |
-| `v20.events.data.microsoft.com`                            | GPO-01 + SCM-01                                                    | Covered                         | Same source family                                                                          |
+| `v10.events.data.microsoft.com`                            | GPO-01 + SCM-02                                                    | Covered                         | Diagnostic event upload source disabled                                                     |
+| `v20.events.data.microsoft.com`                            | GPO-01 + SCM-02                                                    | Covered                         | Same source family                                                                          |
 | `browser.events.data.msn.com`                              | APP-01 + GPO-02 + GPO-03                                           | Covered                         | Start experiences package removed; content surfaces disabled                                |
 | `settings-win.data.microsoft.com`                          | HOST-01                                                            | Covered                         | Local sinkhole; external connection should not occur                                        |
 | `watson.events.data.microsoft.com`                         | GPO-12                                                             | Covered                         | WER upload disabled                                                                         |
 | `client.wns.windows.com`                                   | GPO-05                                                             | Covered                         | Cloud notification network usage disabled                                                   |
 | `activity.windows.com`                                     | GPO-04                                                             | Covered                         | Activity Feed and upload disabled                                                           |
 | `enterprise.activity.windows.com`                          | GPO-04                                                             | Covered                         | Same policy family                                                                          |
-| `cs.dds.microsoft.com`                                     | GPO-09 + GPO-10 + GPO-11 + SCM-02 + SCM-03 + ID-01 + ID-02 + ID-03 | Covered                         | Source-level shutdown; no permanent DDS firewall rule                                       |
+| `cs.dds.microsoft.com`                                     | GPO-09 + GPO-10 + GPO-11 + SCM-01 + SCM-03 + ID-01 + ID-02 + ID-03 | Covered                         | Source-level shutdown; no permanent DDS firewall rule                                       |
 | `graph.microsoft.com` from `CrossDeviceResume.exe`         | SET-01                                                             | Covered, source-specific        | Graph is not globally blocked                                                               |
 | `inference.location.live.net`                              | SET-02                                                             | Covered                         | Windows Location off                                                                        |
 | `agps.location.live.net`                                   | SET-02                                                             | Covered                         | Windows Location off                                                                        |
@@ -454,40 +475,40 @@ Endpoint coverage result: all 32 endpoint rows are assigned to a canonical contr
 
 ## 4. Disabled, stopped, or removed component coverage verification
 
-| Component or state                                          | Canonical controls | Coverage verdict                        | Notes                                                               |
-| ----------------------------------------------------------- | ------------------ | --------------------------------------- | ------------------------------------------------------------------- |
-| DiagTrack stopped and disabled                              | SCM-01             | Covered                                 | Service Control Manager owns state                                  |
-| CDPSvc stopped and disabled                                 | SCM-02             | Covered                                 | Service Control Manager owns state                                  |
-| CDPUserSvc disabled; `UserServiceFlags=0`                   | SCM-03             | Covered with service-template exception | Exact flags require service-template metadata handling              |
-| Microsoft.StartExperiencesApp removed and deprovisioned     | APP-01             | Covered                                 | AppX state, not GPO                                                 |
-| Microsoft Teams uninstalled                                 | APP-02             | Covered                                 | Installed-app/MSI/AppX state                                        |
-| Microsoft Edge browser uninstalled                          | APP-03             | Covered where supported                 | WebView2 intentionally kept                                         |
-| Widgets disabled                                            | GPO-02             | Covered                                 | Local GPO                                                           |
-| Spotlight and consumer content disabled                     | GPO-03             | Covered                                 | Local GPO; value-2 correction documented                            |
-| Activity Feed disabled                                      | GPO-04             | Covered                                 | Local GPO                                                           |
-| WNS cloud notifications disabled                            | GPO-05             | Covered                                 | Local GPO                                                           |
-| Windows web search/Bing integration disabled                | GPO-06             | Covered                                 | Local GPO plus User Registry.pol record                             |
-| Sync your settings disabled                                 | GPO-09             | Covered                                 | Master policy required; category policies optional defense in depth |
-| CDP/MMX cross-device features disabled                      | GPO-10             | Covered                                 | Local GPO                                                           |
-| Resume off                                                  | SET-01             | Covered                                 | Settings-only feature                                               |
-| Workplace registration disconnected and future join blocked | ID-01 + GPO-11     | Covered                                 | Existing identity removal plus preventive policy                    |
-| OS Microsoft account replaced by local account and blocked  | ID-02 + ID-03      | Covered                                 | Identity subsystem and Security Options                             |
-| Windows Error Reporting upload disabled                     | GPO-12             | Covered                                 | Task/process may still run without transmitting                     |
-| Windows Location services off                               | SET-02             | Covered                                 | Settings-only baseline                                              |
-| NCSI active probes disabled                                 | GPO-07             | Covered                                 | Local GPO                                                           |
-| Windows CEIP disabled                                       | GPO-08             | Covered                                 | Local GPO                                                           |
-| Help "Did you know?" online content disabled                | GPO-08             | Covered                                 | Local GPO                                                           |
-| Windows Messenger CEIP disabled                             | GPO-08             | Covered                                 | Local GPO                                                           |
-| Explorer SmartScreen disabled                               | GPO-13             | Covered                                 | Defender Network Protection remains on                              |
-| Block at First Sight preserved                              | DEF-07             | Covered                                 | Security-preservation control                                       |
-| Edge ECS disabled                                           | GPO-15             | Covered                                 | Vendor ADMX/LGPO                                                    |
-| WebView2 ECS disabled                                       | GPO-16             | Covered                                 | Vendor ADMX/LGPO                                                    |
-| Edge Update ECS disabled                                    | GPO-17             | Covered                                 | Vendor ADMX/LGPO                                                    |
-| Delivery Optimization coordination/peering reduced          | GPO-14             | Covered                                 | Simple mode 99                                                      |
-| Visual Studio SQM disabled                                  | GPO-18             | Covered                                 | Registry.pol via ADMX or LGPO text                                  |
-| VS Code telemetry disabled                                  | APP-04             | Covered                                 | Application setting                                                 |
-| VS Code experiments disabled                                | APP-04             | Covered                                 | Application setting                                                 |
-| Office optional privacy/connected experiences restricted    | SET-03             | Covered                                 | Office UI/policy; required serviceability remains                   |
+| Component or state                                          | Canonical controls | Coverage verdict                        | Notes                                                                  |
+| ----------------------------------------------------------- | ------------------ | --------------------------------------- | ---------------------------------------------------------------------- |
+| CDPSvc stopped and disabled                                 | SCM-01             | Covered                                 | Service Control Manager owns state                                     |
+| DiagTrack stopped and disabled                              | SCM-02             | Covered                                 | Service Control Manager owns state                                     |
+| CDPUserSvc disabled; `UserServiceFlags=0`                   | SCM-03             | Covered with service-template exception | Exact flags require service-template metadata handling                 |
+| Microsoft.StartExperiencesApp removed and deprovisioned     | APP-01             | Covered                                 | AppX state, not GPO                                                    |
+| Microsoft Teams uninstalled                                 | APP-02             | Covered                                 | Installed-app/MSI/AppX state                                           |
+| Microsoft Edge browser uninstalled                          | APP-03             | Covered where supported                 | WebView2 intentionally kept                                            |
+| Widgets disabled                                            | GPO-02             | Covered                                 | Local GPO                                                              |
+| Spotlight and consumer content disabled                     | GPO-03             | Covered                                 | Local GPO; value-2 correction documented                               |
+| Activity Feed disabled                                      | GPO-04             | Covered                                 | Local GPO                                                              |
+| WNS cloud notifications disabled                            | GPO-05             | Covered                                 | Local GPO                                                              |
+| Windows web search/Bing integration disabled                | GPO-06             | Covered                                 | Local GPO plus User Registry.pol record                                |
+| Sync your settings disabled                                 | GPO-09             | Covered                                 | Master policy required; category policies optional defense in depth    |
+| CDP/MMX cross-device features disabled                      | GPO-10             | Covered                                 | Local GPO                                                              |
+| Resume off                                                  | SET-01             | Covered                                 | Settings-only feature                                                  |
+| Workplace registration disconnected and future join blocked | ID-01 + GPO-11     | Covered                                 | Existing identity removal plus preventive policy                       |
+| OS Microsoft account replaced by local account and blocked  | ID-02 + ID-03      | Covered                                 | Identity subsystem and Security Options                                |
+| Windows Error Reporting upload disabled                     | GPO-12             | Covered                                 | Task/process may still run without transmitting                        |
+| Windows Location services off                               | SET-02             | Covered                                 | Settings-only baseline                                                 |
+| NCSI active probes disabled                                 | GPO-07             | Covered                                 | Local GPO                                                              |
+| Windows CEIP disabled                                       | GPO-08             | Covered                                 | Local GPO                                                              |
+| Help "Did you know?" online content disabled                | GPO-08             | Covered                                 | Local GPO                                                              |
+| Windows Messenger CEIP disabled                             | GPO-08             | Covered                                 | Local GPO                                                              |
+| Explorer SmartScreen disabled                               | GPO-13             | Covered                                 | Defender Network Protection remains on                                 |
+| Defender antivirus, real-time, behavior, and IOAV preserved | DEF-01             | Covered                                 | Engine-health preservation; other Defender preferences are not audited |
+| Edge ECS disabled                                           | GPO-15             | Covered                                 | Vendor ADMX/LGPO                                                       |
+| WebView2 ECS disabled                                       | GPO-16             | Covered                                 | Vendor ADMX/LGPO                                                       |
+| Edge Update ECS disabled                                    | GPO-17             | Covered                                 | Vendor ADMX/LGPO                                                       |
+| Delivery Optimization coordination/peering reduced          | GPO-14             | Covered                                 | Simple mode 99                                                         |
+| Visual Studio SQM disabled                                  | GPO-18             | Covered                                 | Registry.pol via ADMX or LGPO text                                     |
+| VS Code telemetry disabled                                  | APP-04             | Covered                                 | Application setting                                                    |
+| VS Code experiments disabled                                | APP-04             | Covered                                 | Application setting                                                    |
+| Office optional privacy/connected experiences restricted    | SET-03             | Covered                                 | Office UI/policy; required serviceability remains                      |
 
 Component coverage result: every component or state from the prior table is assigned to an owning control surface. The only structural exceptions are the CDP user-service metadata field and package removals that are not exposed by a stock Settings UI.
 
@@ -505,7 +526,7 @@ Unblock-File -LiteralPath  .\Windows-Privacy-Audit.ps1
 
 ### 5.1 What the script actually audits
 
-The PowerShell audit only verifies the controls expected to suppress an endpoint.
+The PowerShell audit verifies a mix of registry, service, application, identity, preservation, and cleanup states. It does not observe network traffic or prove that an endpoint emitted zero packets.
 
 For example:
 
@@ -538,35 +559,40 @@ The script currently checks:
 - `BlockAADWorkplaceJoin`.
 - The Microsoft-account Security Options effective registry value.
 - `DisableSearchBoxSuggestions`.
+- `DisableWebSearch` and `ConnectedSearchUseWeb`.
+- The master and per-category Settings Sync registry values encoded in the script.
 - NCSI `NoActiveProbe`.
 - Windows CEIP `CEIPEnable`.
+- Help headlines and Windows Messenger CEIP values.
 - Delivery Optimization mode 99.
 - Edge, WebView2, and Edge Update ECS policy values.
 - WER effective registry value.
 - Explorer SmartScreen effective registry value.
-- A likely Location consent-store value.
-- Automatic root-certificate updates remain enabled.
-- All Defender privacy/security settings used in the project.
-- Defender engine health.
+- Defender antivirus, real-time protection, behavior monitoring, and IOAV engine health.
 - Both IPv4 and IPv6 hosts entries for both sinkholed endpoints.
 - Microsoft.StartExperiencesApp installed and provisioned package absence.
+- Microsoft Teams installed-client absence checks.
+- Microsoft Edge browser absence where supported and WebView2 Runtime presence.
 - Visual Studio SQM effective value.
 - VS Code telemetry and experiments when the settings file exists.
-- `dsregcmd` identity/join state.
+- The current interactive sign-in source and the `dsregcmd` fields encoded in the script.
 - Absence of the old DDS firewall rule and Dynamic Keyword Address.
 - Temporary WFP/process-creation auditing is off.
+
+The current script checks effective registry values only. It does not verify that registry-policy values originated in Local Group Policy or `Registry.pol`.
 
 ### 5.3 Manual or owner-UI checks that are intentionally not fully automated
 
 | Manual item                             | Reason                                                                                                                                    |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Resume is Off                           | The validated control is the Settings app state; there is no need to guess an unstable private registry representation.                   |
-| Location services is Off                | The script checks a likely consent-store value, but the Settings UI remains authoritative across build changes.                           |
+| Location services is Off                | The script does not inspect build-dependent backing state; the Settings UI remains authoritative.                                         |
 | Office privacy controls                 | The original state was configured in Office's privacy UI rather than as a complete Office policy set.                                     |
 | Work/school account disconnected        | `dsregcmd` gives strong verification, but the account list in Settings remains the clearest human check.                                  |
 | OS login converted to local account     | This can be automated, but the current script does not do so and the account conversion itself should remain an explicit identity action. |
 | Package removal when no UI is available | `Microsoft.StartExperiencesApp` removal may require AppX tooling.                                                                         |
 | Edge uninstallation availability        | Whether the Uninstall action exists depends on the Windows build and region.                                                              |
+| Automatic root-certificate updates      | Required by the manifest but not currently audited; verify `DisableRootAutoUpdate` is absent or `0`.                                      |
 
 ## 6. Final audit verdict
 
@@ -580,7 +606,6 @@ The control paths and semantics in this document were checked against current Mi
 - [Search Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-search) and [Windows privacy connection-management guidance](https://learn.microsoft.com/en-gb/windows/privacy/manage-connections-from-windows-operating-system-components-to-microsoft-services).
 - [SettingsSync ADMX Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-admx-settingsync) and [Windows Backup policy settings](https://learn.microsoft.com/en-us/windows/configuration/windows-backup/policy-settings).
 - [ErrorReporting Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-errorreporting).
-- [Defender Policy CSP](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-defender).
 - [Microsoft Edge Experimentation and Configuration Service policy](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-browser-policies/experimentationandconfigurationservicecontrol), [Microsoft Edge WebView2 policy documentation](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-webview-policies), and [Microsoft Edge Update policy documentation](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-update-policies).
 - [Microsoft 365 Apps privacy-control documentation](https://learn.microsoft.com/en-us/microsoft-365-apps/privacy/manage-privacy-controls).
 - [Delivery Optimization Simple mode documentation](https://learn.microsoft.com/en-us/windows/deployment/do/waas-delivery-optimization-reference).

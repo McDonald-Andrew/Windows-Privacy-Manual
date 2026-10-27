@@ -24,7 +24,6 @@ function Check-Reg {
     param([string]$Category,[string]$Path,[string]$Name,[object]$Expected,[string]$Method='Registry/GPO')
     $actual=Get-RegValue $Path $Name
     Add-Check $Category "$Path\$Name" $Expected $actual ($null -ne $actual -and "$actual" -eq "$Expected") $Method
-    if($Method -eq 'Registry/GPO'){ Check-LocalGpo $Category $Path $Name $Expected }
 }
 
 Write-Host "`n=== Windows Privacy / Network Hardening Audit ===" -ForegroundColor Cyan
@@ -51,7 +50,7 @@ Check-Reg 'Activity/CDP' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'Ena
 
 # Spotlight / consumer content
 $u='HKCU:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
-Check-Reg 'Spotlight' $u 'ConfigureWindowsSpotlight' 0
+Check-Reg 'Spotlight' $u 'ConfigureWindowsSpotlight' 2
 Check-Reg 'Spotlight' $u 'DisableSpotlightCollectionOnDesktop' 1
 Check-Reg 'Spotlight' $u 'DisableTailoredExperiencesWithDiagnosticData' 1
 Check-Reg 'Spotlight' $u 'DisableThirdPartySuggestions' 1
@@ -124,7 +123,6 @@ Check-Reg 'Edge' 'HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate' 'UpdaterExperime
 Check-Reg 'WER' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting' 'Disabled' 1
 $ss=Get-RegValue 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'EnableSmartScreen'
 Add-Check 'SmartScreen' 'Explorer SmartScreen policy' 0 $ss ($ss -eq 0) 'GPO'
-Check-LocalGpo 'SmartScreen' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'EnableSmartScreen' 0
 
 # Defender
 $st=Get-MpComputerStatus
